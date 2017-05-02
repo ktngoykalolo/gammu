@@ -28,7 +28,7 @@ if (LARGE_FILES)
 endif (LARGE_FILES)
 
 # Set version
-set (GAMMU_VERSION "1.38.2" CACHE INTERNAL "")
+set (GAMMU_VERSION "1.38.3" CACHE INTERNAL "")
 string (REGEX REPLACE "^([0-9]*)\\.([0-9]*)\\.([0-9]*)$" "\\1" "GAMMU_VERSION_MAJOR" "${GAMMU_VERSION}")
 string (REGEX REPLACE "^([0-9]*)\\.([0-9]*)\\.([0-9]*)$" "\\2" "GAMMU_VERSION_MINOR" "${GAMMU_VERSION}")
 string (REGEX REPLACE "^([0-9]*)\\.([0-9]*)\\.([0-9]*)$" "\\3" "GAMMU_VERSION_PATCH" "${GAMMU_VERSION}")
@@ -65,6 +65,7 @@ include (MacroOptionalFindPackage)
 include (MacroAddDLL)
 include (MacroGammuOption)
 include (MacroTuneCompiler)
+include (MSVCRuntime)
 
 # WE use pkgconfig later
 find_package (PkgConfig)
@@ -429,6 +430,9 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
     set(MATH_LIBS "")
+    
+   # Call cmake with "-DMSVC_RUNTIME=static" to link with static runtime libraries
+   configure_msvc_runtime()
 else(MSVC)
     set(MATH_LIBS "-lm")
 endif(MSVC)

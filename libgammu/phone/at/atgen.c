@@ -1925,6 +1925,7 @@ GSM_Error ATGEN_ReplyGetManufacturer(GSM_Protocol_Message *msg, GSM_StateMachine
 		{"Option", AT_Option},
 		{"Wavecom", AT_Wavecom},
 		{"Qualcomm", AT_Qualcomm},
+		{"Telit", AT_Telit},
 		{"ZTE", AT_ZTE},
 		{"\0", 0}
 	};
@@ -4390,53 +4391,48 @@ GSM_Error ATGEN_DialService(GSM_StateMachine *s, char *number)
 	char *req = NULL,*encoded = NULL;
 	unsigned char *tmp = NULL;
 	const char format[] = "AT+CUSD=%d,\"%s\",15\r";
-	size_t len = 0, sevenlen = 0;
+	size_t len = 0, allocsize;
 
+	len = strlen(number);
 	/*
 	 * We need to allocate twice more memory for number here, because it
 	 * might be encoded later.
 	 */
-	req = (char *)malloc(strlen(format) + (strlen(number) * 2) + 1);
+	allocsize = 2 * (len + 1);
+	req = (char *)malloc(strlen(format) + allocsize + 1);
 
 	if (req == NULL) {
 		return ERR_MOREMEMORY;
 	}
-	error = ATGEN_SetCharset(s, AT_PREF_CHARSET_GSM);
+	/* Prefer unicode to be able to deal with unicode response */
+	error = ATGEN_SetCharset(s, AT_PREF_CHARSET_UNICODE);
 
 	if (error != ERR_NONE) {
 		free(req);
 		req = NULL;
 		return error;
 	}
-	if (GSM_IsPhoneFeatureAvailable(s->Phone.Data.ModelInfo, F_ENCODED_USSD)) {
-		len = strlen(number);
-		encoded = (char *)malloc(2 * (len + 1));
-
-		if (encoded == NULL) {
-			free(req);
-			req = NULL;
-			return ERR_MOREMEMORY;
-		}
-		tmp = (unsigned char *)malloc(len + 1);
-
-		if (tmp == NULL) {
-			free(req);
-			free(encoded);
-			return ERR_MOREMEMORY;
-		}
-		sevenlen = GSM_PackSevenBitsToEight(0, number, tmp, len);
-		EncodeHexBin(encoded, tmp, sevenlen);
+	encoded = (char *)malloc(allocsize);
+	tmp = (unsigned char *)malloc(allocsize);
+	if (tmp == NULL || encoded == NULL) {
+		free(req);
 		free(tmp);
-		tmp = NULL;
-	} else {
-		encoded = number;
+		free(encoded);
+		return ERR_MOREMEMORY;
 	}
+	EncodeUnicode(tmp, number, strlen(number));
+	error = ATGEN_EncodeText(s, tmp, len, encoded, allocsize, &len);
+	free(tmp);
+	if (error != ERR_NONE) {
+		free(req);
+		free(encoded);
+		return error;
+	}
+
 	len = sprintf(req, format, s->Phone.Data.EnableIncomingUSSD ? 1 : 0, encoded);
 
-	if (encoded != number) {
-		free(encoded);
-		encoded = NULL;
-	}
+	free(encoded);
+
 	error = ATGEN_WaitFor(s, req, len, 0x00, 30, ID_GetUSSD);
 	free(req);
 	req = NULL;

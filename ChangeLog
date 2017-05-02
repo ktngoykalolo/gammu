@@ -19,9 +19,16 @@ the issue.
 ChangeLog
 =========
     
-2017???? - 1.38.2
+2017???? - 1.38.3
+    
+20170328 - 1.38.2
 
-[-] * Improve support for Huawei K3765.
+[-] * Improved support for Huawei K3765, E150 and E372.
+[-] * Fixed decoding of unicode surrogates at message boundary.
+[+] * Environment variable PHONE_ID for external program.
+[-] * SMS compatibility with devices following old version of GSM 03.38.
+[-] * Unicode is now preferred when handling USSD.
+[+] * Improved decoding of MMS indication SMS.
 
 20170105 - 1.38.1
 

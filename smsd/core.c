@@ -391,6 +391,7 @@ GSM_SMSDConfig *SMSD_NewConfig(const char *name)
 	Config->ServiceName = NULL;
 	Config->Service = NULL;
 	Config->IgnoredMessages = 0;
+	Config->PhoneID = NULL;
 
 #if defined(HAVE_MYSQL_MYSQL_H)
 	Config->conn.my = NULL;
@@ -644,7 +645,7 @@ GSM_Error SMSD_ConfigureLogging(GSM_SMSDConfig *Config, gboolean uselog)
 			fprintf(stderr, "Can't open log file \"%s\"\n", Config->logfilename);
 			return ERR_CANTOPENFILE;
 		}
-		fprintf(stderr, "Log filename is \"%s\"\n",Config->logfilename);
+		fprintf(stdout, "Log filename is \"%s\"\n",Config->logfilename);
 	}
 	return ERR_NONE;
 }
@@ -1036,13 +1037,18 @@ void SMSD_RunOnReceiveEnvironment(GSM_MultiSMSMessage *sms, GSM_SMSDConfig *Conf
 	/* Raw message data */
 	sprintf(buffer, "%d", sms->Number);
 	setenv("SMS_MESSAGES", buffer, 1);
+
+	if (Config->PhoneID) {
+		setenv("PHONE_ID", Config->PhoneID, 1);
+	}
+
 	for (i = 0; i < sms->Number; i++) {
 		sprintf(buffer, "%d", sms->SMS[i].Class);
 		sprintf(name, "SMS_%d_CLASS", i + 1);
 		setenv(name, buffer, 1);
 		sprintf(name, "SMS_%d_NUMBER", i + 1);
 		setenv(name, DecodeUnicodeConsole(sms->SMS[i].Number), 1);
-		if (sms->SMS[i].Coding != SMS_Coding_8bit) {
+		if (sms->SMS[i].Coding != SMS_Coding_8bit && sms->SMS[i].UDH.Type != UDH_UserUDH) {
 			sprintf(name, "SMS_%d_TEXT", i + 1);
 			setenv(name, DecodeUnicodeConsole(sms->SMS[i].Text), 1);
 		}
@@ -1060,7 +1066,7 @@ void SMSD_RunOnReceiveEnvironment(GSM_MultiSMSMessage *sms, GSM_SMSDConfig *Conf
 				case SMS_ConcatenatedAutoTextLong16bit:
 				case SMS_NokiaVCARD21Long:
 				case SMS_NokiaVCALENDAR10Long:
-					sprintf(name, "DECODED_%d_TEXT", i);
+					sprintf(name, "DECODED_%d_TEXT", i + 1);
 					setenv(name, DecodeUnicodeConsole(SMSInfo.Entries[i].Buffer), 1);
 					break;
 				case SMS_MMSIndicatorLong:
@@ -1936,7 +1942,7 @@ GSM_Error SMSD_MainLoop(GSM_SMSDConfig *Config, gboolean exit_on_failure, int ma
 {
 	GSM_Error		error;
 	int                     errors = -1, initerrors=0;
-	unsigned int		lastsleep;
+	double			lastsleep;
  	time_t			lastreceive = 0, lastreset = time(NULL), lasthardreset = time(NULL), lastnothingsent = 0, laststatus = 0;
 	time_t			lastloop = 0, current_time;
 	int i;
@@ -2099,6 +2105,9 @@ GSM_Error SMSD_MainLoop(GSM_SMSDConfig *Config, gboolean exit_on_failure, int ma
 			force_hard_reset = TRUE;
 			continue;
 		}
+		if (Config->shutdown) {
+			break;
+		}
 
 		/* Send any queued messages */
 		current_time = time(NULL);
@@ -2109,6 +2118,9 @@ GSM_Error SMSD_MainLoop(GSM_SMSDConfig *Config, gboolean exit_on_failure, int ma
 			}
 			/* We don't care about other errors here, they are handled in SMSD_SendSMS */
 		}
+		if (Config->shutdown) {
+			break;
+		}
 
 		/* Refresh phone status in shared memory and in service */
 		current_time = time(NULL);
@@ -2118,9 +2130,12 @@ GSM_Error SMSD_MainLoop(GSM_SMSDConfig *Config, gboolean exit_on_failure, int ma
 			Config->Service->RefreshPhoneStatus(Config);
 		}
 
+		if (Config->shutdown) {
+			break;
+		}
 		/* Sleep some time before another loop */
 		current_time = time(NULL);
-		lastsleep = round(difftime(current_time, lastloop));
+		lastsleep = difftime(current_time, lastloop);
 		if (Config->loopsleep == 1) {
 			sleep(1);
 		} else if (lastsleep < Config->loopsleep) {

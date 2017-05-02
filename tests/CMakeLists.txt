@@ -153,17 +153,17 @@ if (WITH_BACKUP)
     target_link_libraries(smsbackup libGammu ${LIBINTL_LIBRARIES})
 
     # List test cases
-    file(GLOB VCARDS
+    file(GLOB SMSBACKUPS
         RELATIVE "${Gammu_SOURCE_DIR}/tests/smsbackups"
         "${Gammu_SOURCE_DIR}/tests/smsbackups/*.smsbackup")
-    list(SORT VCARDS)
+    list(SORT SMSBACKUPS)
 
-    foreach(TESTVCARD ${VCARDS})
-        string(REPLACE .smsbackup "" TESTNAME ${TESTVCARD})
+    foreach(TESTSMSBACKUP ${SMSBACKUPS})
+        string(REPLACE .smsbackup "" TESTNAME ${TESTSMSBACKUP})
         add_test("smsbackup-${TESTNAME}"
             "${GAMMU_TEST_PATH}/smsbackup${CMAKE_EXECUTABLE_SUFFIX}"
-            "${Gammu_SOURCE_DIR}/tests/smsbackups/${TESTVCARD}")
-    endforeach(TESTVCARD $VCARDS)
+            "${Gammu_SOURCE_DIR}/tests/smsbackups/${TESTSMSBACKUP}")
+    endforeach(TESTSMSBACKUP $SMSBACKUPS)
 endif (WITH_BACKUP)
 
 if (WITH_BACKUP)
@@ -421,7 +421,7 @@ if (WITH_ATGEN)
     # AT SMS parsing
     add_executable(sms-at-parse sms-at-parse.c)
     add_coverage(sms-at-parse)
-    target_link_libraries(sms-at-parse libGammu ${LIBINTL_LIBRARIES})
+    target_link_libraries(sms-at-parse libGammu ${LIBINTL_LIBRARIES} gsmsd)
     target_link_libraries(sms-at-parse messagedisplay)
 
     # List test cases for success
